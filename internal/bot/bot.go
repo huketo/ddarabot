@@ -25,6 +25,7 @@ type Bot struct {
 
 func New(
 	cfg *config.Config,
+	did string,
 	st *store.Store,
 	tr *translator.Translator,
 	poster *bluesky.Poster,
@@ -33,7 +34,7 @@ func New(
 	eventCh := make(chan jetstream.Post, 64)
 	listener := jetstream.NewListener(
 		cfg.Jetstream.URL,
-		cfg.Jetstream.WatchedDIDs,
+		did,
 		logger,
 		eventCh,
 		st.SaveCursor,

@@ -15,7 +15,6 @@ pds_host = "https://bsky.social"
 
 [jetstream]
 url = "wss://jetstream2.us-east.bsky.network/subscribe"
-watched_dids = ["did:plc:test123"]
 
 [translation]
 source_language = "ko"
@@ -65,7 +64,6 @@ pds_host = "https://bsky.social"
 
 [jetstream]
 url = "wss://jetstream2.us-east.bsky.network/subscribe"
-watched_dids = ["did:plc:test123"]
 
 [translation]
 source_language = "ko"

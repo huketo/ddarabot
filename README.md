@@ -78,9 +78,6 @@ docker run -v ./data:/app/data ddarabot
 handle = "my-handle.bsky.social"
 app_password = "xxxx-xxxx-xxxx-xxxx"
 
-[jetstream]
-watched_dids = ["did:plc:my-did-here"]
-
 [translation]
 source_language = "ko"
 target_languages = ["en", "ja", "zh"]
@@ -136,17 +133,16 @@ DDaraBot이 정상적으로 설정되었는지 아래 항목을 순서대로 확
 
 ### 빌드 및 기본 동작
 
-- [ ] `make build` — 에러 없이 `bin/ddarabot` 바이너리 생성
-- [ ] `./bin/ddarabot version` — 버전 문자열 출력
-- [ ] `make test` — 모든 테스트 PASS
-- [ ] `make lint` — gofmt/vet 위반 없음
+- [x] `make build` — 에러 없이 `bin/ddarabot` 바이너리 생성
+- [x] `./bin/ddarabot version` — 버전 문자열 출력
+- [x] `make test` — 모든 테스트 PASS
+- [x] `make lint` — gofmt/vet 위반 없음
 
 ### 설정 파일
 
 - [ ] `cp config.example.toml config.toml` 후 값 채우기
-- [ ] `bluesky.handle` — 내 Bluesky 핸들 입력
+- [ ] `bluesky.handle` — 내 Bluesky 핸들 입력 (DID는 시작 시 자동 resolve)
 - [ ] `bluesky.app_password` — [앱 비밀번호](https://bsky.app/settings/app-passwords) 생성 후 입력
-- [ ] `jetstream.watched_dids` — 내 DID 입력 ([여기서 확인](https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=내핸들.bsky.social))
 - [ ] `llm.model` — 사용할 모델 지정 (예: `googleai/gemini-2.5-flash`)
 - [ ] 해당 프로바이더의 API 키 입력
 

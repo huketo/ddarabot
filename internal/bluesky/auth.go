@@ -118,3 +118,35 @@ func (a *Auth) InvalidateSession() {
 	a.session = nil
 	a.mu.Unlock()
 }
+
+type resolveHandleResponse struct {
+	DID string `json:"did"`
+}
+
+// ResolveDID resolves a Bluesky handle to a DID using the public XRPC endpoint.
+// This does not require authentication.
+func ResolveDID(ctx context.Context, pdsHost, handle string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		pdsHost+"/xrpc/com.atproto.identity.resolveHandle?handle="+handle, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("resolve handle: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var xrpcErr XRPCError
+		json.NewDecoder(resp.Body).Decode(&xrpcErr)
+		return "", fmt.Errorf("resolve handle: %s %s", xrpcErr.Error, xrpcErr.Message)
+	}
+
+	var result resolveHandleResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("decode resolve handle: %w", err)
+	}
+	return result.DID, nil
+}

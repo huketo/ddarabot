@@ -101,3 +101,25 @@ func TestAuth_GetSession_AutoCreate(t *testing.T) {
 		t.Errorf("callCount = %d, want 1 (should reuse)", callCount)
 	}
 }
+
+func TestResolveDID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/xrpc/com.atproto.identity.resolveHandle" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		handle := r.URL.Query().Get("handle")
+		if handle != "test.bsky.social" {
+			t.Errorf("handle = %q, want %q", handle, "test.bsky.social")
+		}
+		json.NewEncoder(w).Encode(map[string]string{"did": "did:plc:resolved123"})
+	}))
+	defer server.Close()
+
+	did, err := ResolveDID(context.Background(), server.URL, "test.bsky.social")
+	if err != nil {
+		t.Fatalf("ResolveDID() error = %v", err)
+	}
+	if did != "did:plc:resolved123" {
+		t.Errorf("DID = %q, want %q", did, "did:plc:resolved123")
+	}
+}

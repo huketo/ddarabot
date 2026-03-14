@@ -72,8 +72,8 @@ func TestRemoveTriggerTag(t *testing.T) {
 		want   string
 	}{
 		{
-			// "오늘 날씨가 좋네요! " = 28 bytes, "#ddara" = 6 bytes
-			// 오(3)+늘(3)+' '(1)+날(3)+씨(3)+가(3)+' '(1)+좋(3)+네(3)+요(3)+'!'(1)+' '(1) = 28
+			// Korean text before "#ddara" = 28 bytes (9 CJK chars x 3 bytes + "! " 2 bytes)
+			// "#ddara" = 6 bytes, so byteStart=28, byteEnd=34
 			// '#'(1)+'d'(1)+'d'(1)+'a'(1)+'r'(1)+'a'(1) = 6, total = 34
 			name: "remove trailing #ddara",
 			text: "오늘 날씨가 좋네요! #ddara",

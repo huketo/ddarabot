@@ -75,11 +75,18 @@ func runBot() {
 	}
 	defer st.Close()
 
+	did, err := bluesky.ResolveDID(ctx, cfg.Bluesky.PDSHost, cfg.Bluesky.Handle)
+	if err != nil {
+		logger.Error("failed to resolve DID", "handle", cfg.Bluesky.Handle, "error", err)
+		os.Exit(1)
+	}
+	logger.Info("resolved DID", "handle", cfg.Bluesky.Handle, "did", did)
+
 	auth := bluesky.NewAuth(cfg.Bluesky.PDSHost, cfg.Bluesky.Handle, cfg.Bluesky.AppPassword)
 	poster := bluesky.NewPoster(auth, cfg.Bluesky.PDSHost, logger, *dryRun)
 	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, logger)
 
-	b := bot.New(cfg, st, tr, poster, logger)
+	b := bot.New(cfg, did, st, tr, poster, logger)
 
 	logger.Info("starting ddarabot",
 		"version", version,

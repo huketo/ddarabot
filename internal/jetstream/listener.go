@@ -41,7 +41,7 @@ type Listener struct {
 // URL and set of watched DIDs.
 func NewListener(
 	url string,
-	watchedDIDs []string,
+	did string,
 	logger *slog.Logger,
 	eventCh chan<- Post,
 	saveCursor func(int64) error,
@@ -49,7 +49,7 @@ func NewListener(
 	cfg := &jsclient.ClientConfig{
 		Compress:          true,
 		WebsocketURL:      url,
-		WantedDids:        watchedDIDs,
+		WantedDids:        []string{did},
 		WantedCollections: []string{"app.bsky.feed.post"},
 		ExtraHeaders:      map[string]string{},
 	}

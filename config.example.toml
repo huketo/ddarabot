@@ -1,17 +1,14 @@
-# DDaraBot 설정 파일
-# 이 파일을 config.toml로 복사하고 값을 채워주세요.
+# DDaraBot configuration file
+# Copy this file to config.toml and fill in the values.
 # cp config.example.toml config.toml
 
 [bluesky]
 handle = "my-handle.bsky.social"
-app_password = "xxxx-xxxx-xxxx-xxxx"      # 환경변수: DDARA_BLUESKY_APP_PASSWORD
+app_password = "xxxx-xxxx-xxxx-xxxx"      # env: DDARA_BLUESKY_APP_PASSWORD
 pds_host = "https://bsky.social"
 
 [jetstream]
 url = "wss://jetstream2.us-east.bsky.network/subscribe"
-watched_dids = [
-  "did:plc:my-did-here",
-]
 
 [translation]
 source_language = "ko"                     # BCP 47
@@ -21,18 +18,18 @@ summarize_on_overflow = true
 footer = "\n\n🌐 Translated by #DDaraBot"
 
 [llm]
-# provider/model 형식. provider는 자동 결정됨.
-# 지원: openai/, anthropic/, googleai/, ollama/, vertexai/
+# Format: provider/model. Provider is auto-detected from the model name.
+# Supported: openai/, anthropic/, googleai/, ollama/, vertexai/
 model = "googleai/gemini-2.5-flash"
 
 [llm.openai]
-api_key = ""                               # 환경변수: OPENAI_API_KEY
+api_key = ""                               # env: OPENAI_API_KEY
 
 [llm.anthropic]
-api_key = ""                               # 환경변수: ANTHROPIC_API_KEY
+api_key = ""                               # env: ANTHROPIC_API_KEY
 
 [llm.googleai]
-api_key = ""                               # 환경변수: GOOGLE_API_KEY
+api_key = ""                               # env: GOOGLE_API_KEY
 
 [llm.ollama]
 server_address = "http://localhost:11434"

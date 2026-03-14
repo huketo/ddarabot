@@ -9,7 +9,7 @@ func TestNewListener(t *testing.T) {
 	ch := make(chan Post, 10)
 	l := NewListener(
 		"wss://jetstream2.us-east.bsky.network/subscribe",
-		[]string{"did:plc:test"},
+		"did:plc:test",
 		slog.Default(),
 		ch,
 		func(cursor int64) error { return nil },

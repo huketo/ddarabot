@@ -24,8 +24,7 @@ type Bluesky struct {
 }
 
 type Jetstream struct {
-	URL         string   `toml:"url"`
-	WatchedDIDs []string `toml:"watched_dids"`
+	URL string `toml:"url"`
 }
 
 type Translation struct {
