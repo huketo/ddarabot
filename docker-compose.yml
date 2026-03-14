@@ -1,0 +1,13 @@
+services:
+  ddarabot:
+    image: ddarabot:latest
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Seoul
+      # - DDARA_BLUESKY_APP_PASSWORD=xxxx
+      # - OPENAI_API_KEY=sk-...
+      # - ANTHROPIC_API_KEY=sk-ant-...
+      # - GOOGLE_API_KEY=AI...
