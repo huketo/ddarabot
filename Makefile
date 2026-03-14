@@ -1,7 +1,7 @@
 APP_NAME := ddarabot
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
-.PHONY: build run test lint fmt clean
+.PHONY: build run test lint fmt clean docker-build docker-deploy
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o bin/$(APP_NAME) ./cmd/ddarabot/
@@ -18,6 +18,12 @@ lint:
 
 fmt:
 	gofmt -w ./cmd/ ./internal/
+
+docker-build:
+	docker build -t $(APP_NAME):$(VERSION) -t $(APP_NAME):latest .
+
+docker-deploy:
+	docker compose up -d
 
 clean:
 	rm -rf bin/
