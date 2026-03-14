@@ -1,7 +1,6 @@
 services:
   ddarabot:
-    image: ddarabot:latest
-    build: .
+    image: huketo/ddarabot:latest
     restart: unless-stopped
     volumes:
       - ./data:/app/data

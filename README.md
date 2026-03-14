@@ -48,11 +48,48 @@ All providers are supported through [Genkit](https://genkit.dev/)'s unified API:
 
 ### Prerequisites
 
-- Go 1.24+
 - A Bluesky [app password](https://bsky.app/settings/app-passwords)
 - An LLM API key (depending on your chosen provider)
 
-### Build & Run
+### Using Docker (recommended)
+
+No build required. Just create a config file and run:
+
+```bash
+# 1. Download the example config
+mkdir -p data
+curl -o data/config.toml https://raw.githubusercontent.com/huketo/ddarabot/main/config.example.toml
+
+# 2. Edit data/config.toml with your Bluesky handle, app password, and LLM API key
+
+# 3. Run
+docker run -d --restart unless-stopped \
+  -v ./data:/app/data \
+  huketo/ddarabot:latest
+```
+
+### Using Docker Compose
+
+```yaml
+# docker-compose.yml
+services:
+  ddarabot:
+    image: huketo/ddarabot:latest
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Seoul
+```
+
+```bash
+# Place config.toml in ./data/, then:
+docker compose up -d
+```
+
+### Build from Source
+
+Requires Go 1.24+.
 
 ```bash
 git clone https://github.com/huketo/ddarabot.git
@@ -60,26 +97,14 @@ cd ddarabot
 make build
 
 cp config.example.toml config.toml
-# Edit config.toml with your Bluesky handle, app password, and LLM API key
+# Edit config.toml
 
 ./bin/ddarabot --config config.toml
 ```
 
-### Docker
-
-```bash
-# Build and run
-make docker-build
-make docker-deploy
-
-# Or manually
-docker build -t ddarabot .
-docker run -v ./data:/app/data ddarabot
-```
-
 ## Configuration
 
-Copy `config.example.toml` to `config.toml` and fill in the values.
+See [`config.example.toml`](config.example.toml) for the full reference.
 
 ```toml
 [bluesky]
@@ -128,7 +153,7 @@ make test           # Run tests
 make lint           # Check gofmt + go vet
 make fmt            # Auto-format code
 make release        # Cross-compile for all platforms
-make docker-build   # Build Docker image
+make docker-build   # Build Docker image locally
 make docker-deploy  # Deploy with docker compose
 make clean          # Remove build artifacts
 ```

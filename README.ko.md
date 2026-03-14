@@ -46,11 +46,48 @@
 
 ### 사전 요구사항
 
-- Go 1.24+
 - Bluesky [앱 비밀번호](https://bsky.app/settings/app-passwords)
 - LLM API 키 (사용할 프로바이더에 따라)
 
-### 빌드 및 실행
+### Docker 사용 (권장)
+
+빌드 없이 설정 파일만 만들면 바로 실행할 수 있습니다:
+
+```bash
+# 1. 예제 설정 파일 다운로드
+mkdir -p data
+curl -o data/config.toml https://raw.githubusercontent.com/huketo/ddarabot/main/config.example.toml
+
+# 2. data/config.toml 편집 (Bluesky 핸들, 앱 비밀번호, LLM API 키 입력)
+
+# 3. 실행
+docker run -d --restart unless-stopped \
+  -v ./data:/app/data \
+  huketo/ddarabot:latest
+```
+
+### Docker Compose 사용
+
+```yaml
+# docker-compose.yml
+services:
+  ddarabot:
+    image: huketo/ddarabot:latest
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Seoul
+```
+
+```bash
+# ./data/에 config.toml 배치 후:
+docker compose up -d
+```
+
+### 소스에서 빌드
+
+Go 1.24+ 필요.
 
 ```bash
 git clone https://github.com/huketo/ddarabot.git
@@ -58,21 +95,9 @@ cd ddarabot
 make build
 
 cp config.example.toml config.toml
-# config.toml에 Bluesky 핸들, 앱 비밀번호, LLM API 키를 입력
+# config.toml 편집
 
 ./bin/ddarabot --config config.toml
-```
-
-### Docker
-
-```bash
-# 빌드 및 실행
-make docker-build
-make docker-deploy
-
-# 또는 직접
-docker build -t ddarabot .
-docker run -v ./data:/app/data ddarabot
 ```
 
 ## 설정
@@ -126,7 +151,7 @@ make test           # 테스트 실행
 make lint           # gofmt + go vet 검사
 make fmt            # 코드 자동 포맷
 make release        # 전 플랫폼 크로스 컴파일
-make docker-build   # Docker 이미지 빌드
+make docker-build   # Docker 이미지 로컬 빌드
 make docker-deploy  # docker compose로 배포
 make clean          # 빌드 산출물 삭제
 ```
