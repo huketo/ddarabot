@@ -6,8 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
+	"time"
 )
+
+var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 type Auth struct {
 	pdsHost  string
@@ -23,7 +27,7 @@ func NewAuth(pdsHost, handle, password string) *Auth {
 		pdsHost:  pdsHost,
 		handle:   handle,
 		password: password,
-		client:   &http.Client{},
+		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -126,13 +130,20 @@ type resolveHandleResponse struct {
 // ResolveDID resolves a Bluesky handle to a DID using the public XRPC endpoint.
 // This does not require authentication.
 func ResolveDID(ctx context.Context, pdsHost, handle string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		pdsHost+"/xrpc/com.atproto.identity.resolveHandle?handle="+handle, nil)
+	u, err := url.Parse(pdsHost + "/xrpc/com.atproto.identity.resolveHandle")
+	if err != nil {
+		return "", fmt.Errorf("parse URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("handle", handle)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("resolve handle: %w", err)
 	}

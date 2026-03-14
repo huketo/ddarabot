@@ -88,7 +88,35 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("load config %s: %w", path, err)
 	}
 	applyEnvOverrides(&cfg)
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
 	return &cfg, nil
+}
+
+func (c *Config) Validate() error {
+	if c.Bluesky.Handle == "" {
+		return fmt.Errorf("bluesky.handle is required")
+	}
+	if c.Bluesky.AppPassword == "" {
+		return fmt.Errorf("bluesky.app_password is required")
+	}
+	if !strings.HasPrefix(c.Bluesky.PDSHost, "https://") {
+		return fmt.Errorf("bluesky.pds_host must start with https://")
+	}
+	if !strings.HasPrefix(c.Jetstream.URL, "wss://") {
+		return fmt.Errorf("jetstream.url must start with wss://")
+	}
+	if c.LLM.Model == "" || !strings.Contains(c.LLM.Model, "/") {
+		return fmt.Errorf("llm.model must be in provider/model format")
+	}
+	if len(c.Translation.TargetLanguages) == 0 {
+		return fmt.Errorf("translation.target_languages must not be empty")
+	}
+	if c.Translation.SourceLanguage == "" {
+		return fmt.Errorf("translation.source_language is required")
+	}
+	return nil
 }
 
 func applyEnvOverrides(cfg *Config) {

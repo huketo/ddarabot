@@ -6,9 +6,12 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o ddarabot ./cmd/ddarabot/
 
 FROM alpine:3.21
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates && \
+    addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=builder /app/ddarabot .
+RUN chown -R app:app /app
+USER app
 VOLUME ["/app/data"]
 ENTRYPOINT ["./ddarabot"]
 CMD ["--config", "/app/data/config.toml"]

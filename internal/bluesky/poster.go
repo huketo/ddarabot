@@ -30,7 +30,7 @@ func NewPoster(auth *Auth, pdsHost string, logger *slog.Logger, dryRun bool) *Po
 		pdsHost: pdsHost,
 		logger:  logger,
 		dryRun:  dryRun,
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -39,7 +39,10 @@ func (p *Poster) PostReply(ctx context.Context, original OriginalPost, lang, tex
 		p.logger.Info("[dry-run] would post reply", "lang", lang, "text", text, "parent", original.URI)
 		return nil
 	}
+	return p.postReplyWithRetry(ctx, original, lang, text, false)
+}
 
+func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, lang, text string, retried bool) error {
 	session, err := p.auth.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("get session: %w", err)
@@ -83,9 +86,10 @@ func (p *Poster) PostReply(ctx context.Context, original OriginalPost, lang, tex
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized {
+	if resp.StatusCode == http.StatusUnauthorized && !retried {
 		p.auth.InvalidateSession()
-		return fmt.Errorf("session expired, will retry")
+		p.logger.Warn("session expired, re-authenticating", "lang", lang)
+		return p.postReplyWithRetry(ctx, original, lang, text, true)
 	}
 
 	if resp.StatusCode != http.StatusOK {

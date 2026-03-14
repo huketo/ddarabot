@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -131,5 +132,54 @@ func TestConfig_Provider(t *testing.T) {
 	cfg.LLM.Model = "ollama/llama3"
 	if got := cfg.LLM.Provider(); got != "ollama" {
 		t.Errorf("Provider() = %q, want %q", got, "ollama")
+	}
+}
+
+func TestValidate_MissingFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		modify  func(*Config)
+		wantErr string
+	}{
+		{"empty handle", func(c *Config) { c.Bluesky.Handle = "" }, "handle"},
+		{"empty app_password", func(c *Config) { c.Bluesky.AppPassword = "" }, "app_password"},
+		{"http pds_host", func(c *Config) { c.Bluesky.PDSHost = "http://bsky.social" }, "https://"},
+		{"ws jetstream", func(c *Config) { c.Jetstream.URL = "ws://localhost" }, "wss://"},
+		{"empty model", func(c *Config) { c.LLM.Model = "" }, "provider/model"},
+		{"bad model format", func(c *Config) { c.LLM.Model = "noSlash" }, "provider/model"},
+		{"empty targets", func(c *Config) { c.Translation.TargetLanguages = nil }, "target_languages"},
+		{"empty source", func(c *Config) { c.Translation.SourceLanguage = "" }, "source_language"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validConfig()
+			tt.modify(cfg)
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Validate() expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidate_ValidConfig(t *testing.T) {
+	cfg := validConfig()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() unexpected error: %v", err)
+	}
+}
+
+func validConfig() *Config {
+	return &Config{
+		Bluesky:     Bluesky{Handle: "test.bsky.social", AppPassword: "pass", PDSHost: "https://bsky.social"},
+		Jetstream:   Jetstream{URL: "wss://jetstream.bsky.network/subscribe"},
+		Translation: Translation{SourceLanguage: "ko", TargetLanguages: []string{"en"}, TriggerHashtag: "ddara"},
+		LLM:         LLM{Model: "openai/gpt-4o-mini"},
+		Store:       Store{Path: "./test.db"},
+		Log:         Log{Level: "info"},
 	}
 }
