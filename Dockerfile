@@ -1,10 +1,12 @@
-FROM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 ENV GOTOOLCHAIN=auto
+ARG TARGETOS TARGETARCH
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o ddarabot ./cmd/ddarabot/
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -ldflags "-s -w" -o ddarabot ./cmd/ddarabot/
 
 FROM alpine:3.21
 RUN apk --no-cache add ca-certificates && \
