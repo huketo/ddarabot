@@ -130,6 +130,46 @@ make fmt      # gofmt 자동 포맷
 make clean    # 빌드 산출물 삭제
 ```
 
+## 동작 확인 체크리스트
+
+DDaraBot이 정상적으로 설정되었는지 아래 항목을 순서대로 확인하세요.
+
+### 빌드 및 기본 동작
+
+- [ ] `make build` — 에러 없이 `bin/ddarabot` 바이너리 생성
+- [ ] `./bin/ddarabot version` — 버전 문자열 출력
+- [ ] `make test` — 모든 테스트 PASS
+- [ ] `make lint` — gofmt/vet 위반 없음
+
+### 설정 파일
+
+- [ ] `cp config.example.toml config.toml` 후 값 채우기
+- [ ] `bluesky.handle` — 내 Bluesky 핸들 입력
+- [ ] `bluesky.app_password` — [앱 비밀번호](https://bsky.app/settings/app-passwords) 생성 후 입력
+- [ ] `jetstream.watched_dids` — 내 DID 입력 ([여기서 확인](https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=내핸들.bsky.social))
+- [ ] `llm.model` — 사용할 모델 지정 (예: `googleai/gemini-2.5-flash`)
+- [ ] 해당 프로바이더의 API 키 입력
+
+### 설정 검증
+
+- [ ] `./bin/ddarabot validate -c config.toml` — "config OK" 출력
+- [ ] validate에서 LLM 테스트 번역 결과 정상 출력
+
+### Dry-run 테스트
+
+- [ ] `./bin/ddarabot --config config.toml --dry-run` 으로 실행
+- [ ] Bluesky에서 `#ddara` 태그 포함 포스트 작성
+- [ ] 로그에 `[dry-run] would post reply` 메시지 확인 (실제 답글은 게시되지 않음)
+
+### 실제 운영
+
+- [ ] `./bin/ddarabot --config config.toml` 으로 실행
+- [ ] Bluesky에서 `#ddara` 태그 포함 포스트 작성
+- [ ] 설정된 타겟 언어별 번역 답글이 내 계정으로 게시됨
+- [ ] 답글 하단에 `🌐 Translated by #DDaraBot` 태그 확인
+- [ ] 같은 포스트에 대해 중복 번역이 발생하지 않음
+- [ ] `Ctrl+C`로 graceful shutdown 확인
+
 ## 라이선스
 
 MIT
