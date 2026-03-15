@@ -145,6 +145,105 @@ func TestIsExpiredTokenError(t *testing.T) {
 	}
 }
 
+func TestBuildLinkFacets(t *testing.T) {
+	text := "Check out example.com for more info\n\n🌐 Translated by #DDaraBot"
+	links := []LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
+
+	facets := BuildLinkFacets(text, links)
+	if len(facets) != 1 {
+		t.Fatalf("BuildLinkFacets() returned %d facets, want 1", len(facets))
+	}
+
+	f := facets[0]
+	textBytes := []byte(text)
+	got := string(textBytes[f.Index.ByteStart:f.Index.ByteEnd])
+	if got != "example.com" {
+		t.Errorf("facet spans %q, want %q", got, "example.com")
+	}
+	if f.Features[0].Type != "app.bsky.richtext.facet#link" {
+		t.Errorf("feature type = %q, want link", f.Features[0].Type)
+	}
+	if f.Features[0].URI != "https://example.com" {
+		t.Errorf("feature URI = %q, want %q", f.Features[0].URI, "https://example.com")
+	}
+}
+
+func TestBuildLinkFacets_NotFound(t *testing.T) {
+	text := "This text has no matching display text"
+	links := []LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
+
+	facets := BuildLinkFacets(text, links)
+	if len(facets) != 0 {
+		t.Errorf("BuildLinkFacets() returned %d facets, want 0", len(facets))
+	}
+}
+
+func TestPoster_PostReply_WithEmbed(t *testing.T) {
+	var capturedBody CreateRecordRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.server.createSession":
+			json.NewEncoder(w).Encode(Session{
+				AccessJwt: "token", RefreshJwt: "refresh", DID: "did:plc:me",
+			})
+		case "/xrpc/com.atproto.repo.createRecord":
+			json.NewDecoder(r.Body).Decode(&capturedBody)
+			json.NewEncoder(w).Encode(CreateRecordResponse{
+				URI: "at://did:plc:me/app.bsky.feed.post/reply789",
+				CID: "bafyembed",
+			})
+		}
+	}))
+	defer server.Close()
+
+	auth := NewAuth(server.URL, "test.bsky.social", "password")
+	poster := NewPoster(auth, server.URL, slog.Default(), false)
+
+	embedJSON := json.RawMessage(`{"$type":"app.bsky.embed.external","external":{"uri":"https://example.com","title":"Example","description":"An example site"}}`)
+	original := OriginalPost{
+		URI:   "at://did:plc:author/app.bsky.feed.post/orig456",
+		CID:   "bafyorig",
+		Embed: embedJSON,
+		LinkInfos: []LinkInfo{
+			{DisplayText: "example.com", URL: "https://example.com"},
+		},
+	}
+
+	text := "Check out example.com for details\n\n🌐 Translated by #DDaraBot"
+	err := poster.PostReply(context.Background(), original, "en", text)
+	if err != nil {
+		t.Fatalf("PostReply() error = %v", err)
+	}
+
+	// Verify the captured request body contains the embed and link facet
+	recordBytes, err := json.Marshal(capturedBody.Record)
+	if err != nil {
+		t.Fatalf("marshal record: %v", err)
+	}
+
+	var record PostRecord
+	if err := json.Unmarshal(recordBytes, &record); err != nil {
+		t.Fatalf("unmarshal record: %v", err)
+	}
+
+	if record.Embed == nil {
+		t.Fatal("record.Embed is nil, expected embed to be present")
+	}
+
+	// Check that link facet is present among the facets
+	foundLink := false
+	for _, f := range record.Facets {
+		for _, feat := range f.Features {
+			if feat.Type == "app.bsky.richtext.facet#link" && feat.URI == "https://example.com" {
+				foundLink = true
+			}
+		}
+	}
+	if !foundLink {
+		t.Error("expected a link facet with URI https://example.com in the record")
+	}
+}
+
 func TestPoster_DryRun(t *testing.T) {
 	poster := NewPoster(nil, "", slog.Default(), true)
 

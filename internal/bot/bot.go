@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -122,7 +123,16 @@ func (b *Bot) processPost(ctx context.Context, post jetstream.Post) {
 		return
 	}
 
-	original := bluesky.OriginalPost{URI: uri, CID: post.CID}
+	// Extract link infos and embed from original post
+	linkInfos := extractLinkInfos(post)
+	embed := extractEmbed(post)
+
+	original := bluesky.OriginalPost{
+		URI:       uri,
+		CID:       post.CID,
+		Embed:     embed,
+		LinkInfos: linkInfos,
+	}
 	postErrs := b.poster.PostAll(ctx, original, translations, 3)
 
 	// Collect only successfully posted languages
@@ -162,4 +172,31 @@ func buildPostURI(did, rkey string) string {
 
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && strings.Contains(s, substr)
+}
+
+func extractLinkInfos(post jetstream.Post) []bluesky.LinkInfo {
+	filterLinks := filter.ExtractLinkInfos(post.Text, post.Facets)
+	if len(filterLinks) == 0 {
+		return nil
+	}
+	links := make([]bluesky.LinkInfo, len(filterLinks))
+	for i, l := range filterLinks {
+		links[i] = bluesky.LinkInfo{DisplayText: l.DisplayText, URL: l.URL}
+	}
+	return links
+}
+
+type recordEmbed struct {
+	Embed json.RawMessage `json:"embed"`
+}
+
+func extractEmbed(post jetstream.Post) json.RawMessage {
+	if len(post.Record) == 0 {
+		return nil
+	}
+	var rec recordEmbed
+	if err := json.Unmarshal(post.Record, &rec); err != nil {
+		return nil
+	}
+	return rec.Embed
 }
