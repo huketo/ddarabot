@@ -86,15 +86,16 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized && !retried {
-		p.auth.InvalidateSession()
-		p.logger.Warn("session expired, re-authenticating", "lang", lang)
-		return p.postReplyWithRetry(ctx, original, lang, text, true)
-	}
-
 	if resp.StatusCode != http.StatusOK {
 		var xrpcErr XRPCError
 		json.NewDecoder(resp.Body).Decode(&xrpcErr)
+
+		if !retried && isExpiredTokenError(resp.StatusCode, xrpcErr.Error) {
+			p.auth.InvalidateSession()
+			p.logger.Warn("session expired, re-authenticating", "lang", lang)
+			return p.postReplyWithRetry(ctx, original, lang, text, true)
+		}
+
 		return fmt.Errorf("create record: %d %s %s", resp.StatusCode, xrpcErr.Error, xrpcErr.Message)
 	}
 
@@ -133,6 +134,12 @@ func (p *Poster) PostAll(ctx context.Context, original OriginalPost, translation
 		}
 	}
 	return errs
+}
+
+func isExpiredTokenError(statusCode int, errorCode string) bool {
+	return statusCode == http.StatusUnauthorized ||
+		errorCode == "ExpiredToken" ||
+		errorCode == "InvalidToken"
 }
 
 func BuildHashtagFacets(text string, tag string) []PostFacet {

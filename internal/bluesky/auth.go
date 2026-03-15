@@ -14,12 +14,13 @@ import (
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 type Auth struct {
-	pdsHost  string
-	handle   string
-	password string
-	client   *http.Client
-	session  *Session
-	mu       sync.RWMutex
+	pdsHost        string
+	handle         string
+	password       string
+	client         *http.Client
+	session        *Session
+	lastRefreshJwt string
+	mu             sync.RWMutex
 }
 
 func NewAuth(pdsHost, handle, password string) *Auth {
@@ -38,6 +39,12 @@ func (a *Auth) GetSession(ctx context.Context) (*Session, error) {
 	if s != nil {
 		return s, nil
 	}
+
+	// Try refreshing first if we have a refresh token
+	if refreshed, err := a.RefreshSession(ctx); err == nil {
+		return refreshed, nil
+	}
+
 	return a.CreateSession(ctx)
 }
 
@@ -79,6 +86,7 @@ func (a *Auth) CreateSession(ctx context.Context) (*Session, error) {
 	}
 
 	a.session = &session
+	a.lastRefreshJwt = session.RefreshJwt
 	return &session, nil
 }
 
@@ -86,8 +94,12 @@ func (a *Auth) RefreshSession(ctx context.Context) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.session == nil {
-		return nil, fmt.Errorf("no session to refresh")
+	refreshJwt := a.lastRefreshJwt
+	if a.session != nil {
+		refreshJwt = a.session.RefreshJwt
+	}
+	if refreshJwt == "" {
+		return nil, fmt.Errorf("no refresh token available")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
@@ -95,7 +107,7 @@ func (a *Auth) RefreshSession(ctx context.Context) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+a.session.RefreshJwt)
+	req.Header.Set("Authorization", "Bearer "+refreshJwt)
 
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -114,6 +126,7 @@ func (a *Auth) RefreshSession(ctx context.Context) (*Session, error) {
 	}
 
 	a.session = &session
+	a.lastRefreshJwt = session.RefreshJwt
 	return &session, nil
 }
 
