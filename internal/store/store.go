@@ -61,6 +61,26 @@ func (s *Store) IsProcessed(uri string) bool {
 	return found
 }
 
+// ProcessedLanguages returns the set of languages already posted for a URI.
+func (s *Store) ProcessedLanguages(uri string) map[string]bool {
+	langs := make(map[string]bool)
+	s.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(bucketProcessed).Get([]byte(uri))
+		if v == nil {
+			return nil
+		}
+		var rec processedRecord
+		if err := json.Unmarshal(v, &rec); err != nil {
+			return nil
+		}
+		for _, l := range rec.Languages {
+			langs[l] = true
+		}
+		return nil
+	})
+	return langs
+}
+
 func (s *Store) MarkProcessed(uri string, languages []string) error {
 	rec := processedRecord{
 		Timestamp: time.Now().Unix(),

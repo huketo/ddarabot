@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/huketo/ddarabot/internal/bluesky"
 	"github.com/huketo/ddarabot/internal/config"
@@ -89,19 +90,28 @@ func (b *Bot) processPost(ctx context.Context, post jetstream.Post) {
 	}
 
 	uri := buildPostURI(post.DID, post.RKey)
-	if b.store.IsProcessed(uri) {
+
+	// Determine which languages still need processing
+	doneLangs := b.store.ProcessedLanguages(uri)
+	var remaining []string
+	for _, lang := range b.cfg.Translation.TargetLanguages {
+		if !doneLangs[lang] {
+			remaining = append(remaining, lang)
+		}
+	}
+	if len(remaining) == 0 {
 		b.logger.Debug("already processed", "uri", uri)
 		return
 	}
 
 	cleanText := filter.RemoveTriggerTag(post.Text, post.Facets, triggerTag)
-	b.logger.Info("processing post", "uri", uri, "text", cleanText)
+	b.logger.Info("processing post", "uri", uri, "text", cleanText, "remaining", remaining)
 
 	translations, errs := b.translator.TranslateAll(
 		ctx,
 		cleanText,
 		b.cfg.Translation.SourceLanguage,
-		b.cfg.Translation.TargetLanguages,
+		remaining,
 	)
 	for _, err := range errs {
 		b.logger.Error("translation error", "error", err)
@@ -114,19 +124,42 @@ func (b *Bot) processPost(ctx context.Context, post jetstream.Post) {
 
 	original := bluesky.OriginalPost{URI: uri, CID: post.CID}
 	postErrs := b.poster.PostAll(ctx, original, translations, 3)
+
+	// Collect only successfully posted languages
+	failed := make(map[string]bool)
 	for _, err := range postErrs {
 		b.logger.Error("posting error", "error", err)
+		for lang := range translations {
+			if contains(err.Error(), lang) {
+				failed[lang] = true
+			}
+		}
 	}
 
-	langs := make([]string, 0, len(translations))
+	var succeeded []string
 	for lang := range translations {
-		langs = append(langs, lang)
+		if !failed[lang] {
+			succeeded = append(succeeded, lang)
+		}
 	}
-	if err := b.store.MarkProcessed(uri, langs); err != nil {
-		b.logger.Error("mark processed failed", "uri", uri, "error", err)
+
+	if len(succeeded) > 0 {
+		// Merge with previously completed languages
+		allDone := make([]string, 0, len(doneLangs)+len(succeeded))
+		for lang := range doneLangs {
+			allDone = append(allDone, lang)
+		}
+		allDone = append(allDone, succeeded...)
+		if err := b.store.MarkProcessed(uri, allDone); err != nil {
+			b.logger.Error("mark processed failed", "uri", uri, "error", err)
+		}
 	}
 }
 
 func buildPostURI(did, rkey string) string {
 	return "at://" + did + "/app.bsky.feed.post/" + rkey
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && strings.Contains(s, substr)
 }
