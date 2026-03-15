@@ -119,6 +119,20 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 	return nil
 }
 
+// PostError wraps a posting error with the language that failed.
+type PostError struct {
+	Lang string
+	Err  error
+}
+
+func (e *PostError) Error() string {
+	return fmt.Sprintf("post %s: %s", e.Lang, e.Err)
+}
+
+func (e *PostError) Unwrap() error {
+	return e.Err
+}
+
 func (p *Poster) PostAll(ctx context.Context, original OriginalPost, translations map[string]string, maxConcurrent int) []error {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 3
@@ -144,7 +158,7 @@ func (p *Poster) PostAll(ctx context.Context, original OriginalPost, translation
 	for range translations {
 		r := <-ch
 		if r.err != nil {
-			errs = append(errs, fmt.Errorf("post %s: %w", r.lang, r.err))
+			errs = append(errs, &PostError{Lang: r.lang, Err: r.err})
 		}
 	}
 	return errs
@@ -202,32 +216,4 @@ func BuildAllHashtagFacets(text string) []PostFacet {
 		})
 	}
 	return facets
-}
-
-// BuildHashtagFacets creates a tag facet for a single specific hashtag.
-// Deprecated: use BuildAllHashtagFacets instead.
-func BuildHashtagFacets(text string, tag string) []PostFacet {
-	hashTag := "#" + tag
-	idx := strings.Index(text, hashTag)
-	if idx == -1 {
-		return nil
-	}
-
-	byteStart := idx
-	byteEnd := byteStart + len(hashTag)
-	if byteEnd > len(text) {
-		return nil
-	}
-
-	return []PostFacet{
-		{
-			Index: FacetIndex{ByteStart: byteStart, ByteEnd: byteEnd},
-			Features: []FacetFeature{
-				{
-					Type: "app.bsky.richtext.facet#tag",
-					Tag:  tag,
-				},
-			},
-		},
-	}
 }

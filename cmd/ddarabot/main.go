@@ -91,7 +91,7 @@ func runBot() {
 
 	auth := bluesky.NewAuth(cfg.Bluesky.PDSHost, cfg.Bluesky.Handle, cfg.Bluesky.AppPassword)
 	poster := bluesky.NewPoster(auth, cfg.Bluesky.PDSHost, logger, *dryRun)
-	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, logger)
+	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, cfg.Translation.SummarizeOnOverflow, logger)
 
 	b := bot.New(cfg, did, st, tr, poster, logger)
 
@@ -129,7 +129,7 @@ func runValidate() {
 	logger := slog.Default()
 	g := initGenkit(ctx, &cfg.LLM, logger)
 
-	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, logger)
+	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, cfg.Translation.SummarizeOnOverflow, logger)
 	results, errs := tr.TranslateAll(ctx, "Hello", cfg.Translation.SourceLanguage, cfg.Translation.TargetLanguages[:1])
 	if len(errs) > 0 {
 		fmt.Fprintf(os.Stderr, "LLM test error: %v\n", errs[0])

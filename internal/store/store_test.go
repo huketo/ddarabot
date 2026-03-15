@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestStore_MarkAndIsProcessed(t *testing.T) {
+func TestStore_MarkProcessed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	s, err := New(path)
 	if err != nil {
@@ -15,16 +15,16 @@ func TestStore_MarkAndIsProcessed(t *testing.T) {
 
 	uri := "at://did:plc:test/app.bsky.feed.post/abc123"
 
-	if s.IsProcessed(uri) {
-		t.Error("IsProcessed() = true before marking")
+	if len(s.ProcessedLanguages(uri)) != 0 {
+		t.Error("ProcessedLanguages() non-empty before marking")
 	}
 
 	if err := s.MarkProcessed(uri, []string{"en", "ja"}); err != nil {
 		t.Fatalf("MarkProcessed() error = %v", err)
 	}
 
-	if !s.IsProcessed(uri) {
-		t.Error("IsProcessed() = false after marking")
+	if len(s.ProcessedLanguages(uri)) != 2 {
+		t.Error("ProcessedLanguages() wrong count after marking")
 	}
 }
 
@@ -128,8 +128,8 @@ func TestStore_CloseAndReopen(t *testing.T) {
 	}
 	defer s2.Close()
 
-	if !s2.IsProcessed(uri) {
-		t.Error("data lost after reopen: IsProcessed = false")
+	if len(s2.ProcessedLanguages(uri)) == 0 {
+		t.Error("data lost after reopen: ProcessedLanguages empty")
 	}
 	cursor, ok := s2.GetCursor()
 	if !ok || cursor != 12345 {

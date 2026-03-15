@@ -3,9 +3,9 @@ package bot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/huketo/ddarabot/internal/bluesky"
 	"github.com/huketo/ddarabot/internal/config"
@@ -139,10 +139,9 @@ func (b *Bot) processPost(ctx context.Context, post jetstream.Post) {
 	failed := make(map[string]bool)
 	for _, err := range postErrs {
 		b.logger.Error("posting error", "error", err)
-		for lang := range translations {
-			if strings.Contains(err.Error(), lang) {
-				failed[lang] = true
-			}
+		var postErr *bluesky.PostError
+		if errors.As(err, &postErr) {
+			failed[postErr.Lang] = true
 		}
 	}
 

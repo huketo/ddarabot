@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var httpClient = &http.Client{Timeout: 30 * time.Second}
+var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 type Auth struct {
 	pdsHost        string
@@ -149,7 +149,7 @@ type resolveHandleResponse struct {
 
 // ResolveDID resolves a Bluesky handle to a DID using the public XRPC endpoint.
 // This does not require authentication.
-func ResolveDID(ctx context.Context, pdsHost, handle string) (string, error) {
+func ResolveDID(ctx context.Context, pdsHost, handle string, client ...*http.Client) (string, error) {
 	u, err := url.Parse(pdsHost + "/xrpc/com.atproto.identity.resolveHandle")
 	if err != nil {
 		return "", fmt.Errorf("parse URL: %w", err)
@@ -163,6 +163,10 @@ func ResolveDID(ctx context.Context, pdsHost, handle string) (string, error) {
 		return "", err
 	}
 
+	httpClient := defaultHTTPClient
+	if len(client) > 0 && client[0] != nil {
+		httpClient = client[0]
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("resolve handle: %w", err)

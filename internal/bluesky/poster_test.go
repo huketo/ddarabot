@@ -12,28 +12,6 @@ import (
 	"github.com/huketo/ddarabot/internal/filter"
 )
 
-func TestBuildFacets(t *testing.T) {
-	text := "Hello world\n\n🌐 Translated by #DDaraBot"
-	facets := BuildHashtagFacets(text, "DDaraBot")
-
-	if len(facets) != 1 {
-		t.Fatalf("len(facets) = %d, want 1", len(facets))
-	}
-
-	f := facets[0]
-	textBytes := []byte(text)
-	tag := string(textBytes[f.Index.ByteStart:f.Index.ByteEnd])
-	if tag != "#DDaraBot" {
-		t.Errorf("facet tag text = %q, want %q", tag, "#DDaraBot")
-	}
-	if f.Features[0].Type != "app.bsky.richtext.facet#tag" {
-		t.Errorf("feature type = %q", f.Features[0].Type)
-	}
-	if f.Features[0].Tag != "DDaraBot" {
-		t.Errorf("feature tag = %q", f.Features[0].Tag)
-	}
-}
-
 func TestPoster_PostReply(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
