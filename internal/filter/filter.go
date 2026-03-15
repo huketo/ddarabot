@@ -18,6 +18,13 @@ type facetIndex struct {
 type facetFeature struct {
 	Type string `json:"$type"`
 	Tag  string `json:"tag"`
+	URI  string `json:"uri"`
+}
+
+// LinkInfo represents a link facet's display text and actual URL.
+type LinkInfo struct {
+	DisplayText string
+	URL         string
 }
 
 type replyCheck struct {
@@ -73,6 +80,36 @@ func RemoveTriggerTag(text string, facetsJSON json.RawMessage, triggerTag string
 		}
 	}
 	return text
+}
+
+// ExtractLinkInfos extracts link facet display texts and URLs from facets JSON.
+func ExtractLinkInfos(text string, facetsJSON json.RawMessage) []LinkInfo {
+	if len(facetsJSON) == 0 {
+		return nil
+	}
+	var facets []facet
+	if err := json.Unmarshal(facetsJSON, &facets); err != nil {
+		return nil
+	}
+
+	textBytes := []byte(text)
+	var links []LinkInfo
+	for _, f := range facets {
+		for _, feat := range f.Features {
+			if feat.Type == "app.bsky.richtext.facet#link" && feat.URI != "" {
+				start := f.Index.ByteStart
+				end := f.Index.ByteEnd
+				if start > len(textBytes) || end > len(textBytes) || start >= end {
+					continue
+				}
+				links = append(links, LinkInfo{
+					DisplayText: string(textBytes[start:end]),
+					URL:         feat.URI,
+				})
+			}
+		}
+	}
+	return links
 }
 
 func IsReply(record json.RawMessage) bool {

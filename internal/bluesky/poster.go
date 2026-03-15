@@ -11,9 +11,16 @@ import (
 	"time"
 )
 
+type LinkInfo struct {
+	DisplayText string
+	URL         string
+}
+
 type OriginalPost struct {
-	URI string
-	CID string
+	URI       string
+	CID       string
+	Embed     json.RawMessage
+	LinkInfos []LinkInfo
 }
 
 type Poster struct {
@@ -48,6 +55,14 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 		return fmt.Errorf("get session: %w", err)
 	}
 
+	facets := BuildHashtagFacets(text, "DDaraBot")
+	facets = append(facets, BuildLinkFacets(text, original.LinkInfos)...)
+
+	var embed *json.RawMessage
+	if len(original.Embed) > 0 {
+		embed = &original.Embed
+	}
+
 	record := PostRecord{
 		Type:      "app.bsky.feed.post",
 		Text:      text,
@@ -57,7 +72,8 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 			Root:   StrongRef{URI: original.URI, CID: original.CID},
 			Parent: StrongRef{URI: original.URI, CID: original.CID},
 		},
-		Facets: BuildHashtagFacets(text, "DDaraBot"),
+		Facets: facets,
+		Embed:  embed,
 	}
 
 	reqBody := CreateRecordRequest{
@@ -140,6 +156,29 @@ func isExpiredTokenError(statusCode int, errorCode string) bool {
 	return statusCode == http.StatusUnauthorized ||
 		errorCode == "ExpiredToken" ||
 		errorCode == "InvalidToken"
+}
+
+// BuildLinkFacets finds link display texts in the translated text and creates link facets.
+func BuildLinkFacets(text string, links []LinkInfo) []PostFacet {
+	var facets []PostFacet
+	for _, link := range links {
+		idx := strings.Index(text, link.DisplayText)
+		if idx == -1 {
+			continue
+		}
+		byteStart := idx
+		byteEnd := byteStart + len(link.DisplayText)
+		facets = append(facets, PostFacet{
+			Index: FacetIndex{ByteStart: byteStart, ByteEnd: byteEnd},
+			Features: []FacetFeature{
+				{
+					Type: "app.bsky.richtext.facet#link",
+					URI:  link.URL,
+				},
+			},
+		})
+	}
+	return facets
 }
 
 func BuildHashtagFacets(text string, tag string) []PostFacet {

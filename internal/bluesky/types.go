@@ -1,5 +1,7 @@
 package bluesky
 
+import "encoding/json"
+
 type CreateSessionRequest struct {
 	Identifier string `json:"identifier"`
 	Password   string `json:"password"`
@@ -24,12 +26,13 @@ type CreateRecordResponse struct {
 }
 
 type PostRecord struct {
-	Type      string      `json:"$type"`
-	Text      string      `json:"text"`
-	CreatedAt string      `json:"createdAt"`
-	Langs     []string    `json:"langs,omitempty"`
-	Reply     *ReplyRef   `json:"reply,omitempty"`
-	Facets    []PostFacet `json:"facets,omitempty"`
+	Type      string           `json:"$type"`
+	Text      string           `json:"text"`
+	CreatedAt string           `json:"createdAt"`
+	Langs     []string         `json:"langs,omitempty"`
+	Reply     *ReplyRef        `json:"reply,omitempty"`
+	Facets    []PostFacet      `json:"facets,omitempty"`
+	Embed     *json.RawMessage `json:"embed,omitempty"`
 }
 
 type ReplyRef struct {
@@ -55,6 +58,7 @@ type FacetIndex struct {
 type FacetFeature struct {
 	Type string `json:"$type"`
 	Tag  string `json:"tag,omitempty"`
+	URI  string `json:"uri,omitempty"`
 }
 
 type XRPCError struct {
