@@ -140,7 +140,7 @@ func (b *Bot) processPost(ctx context.Context, post jetstream.Post) {
 	for _, err := range postErrs {
 		b.logger.Error("posting error", "error", err)
 		for lang := range translations {
-			if contains(err.Error(), lang) {
+			if strings.Contains(err.Error(), lang) {
 				failed[lang] = true
 			}
 		}
@@ -170,20 +170,8 @@ func buildPostURI(did, rkey string) string {
 	return "at://" + did + "/app.bsky.feed.post/" + rkey
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && strings.Contains(s, substr)
-}
-
-func extractLinkInfos(post jetstream.Post) []bluesky.LinkInfo {
-	filterLinks := filter.ExtractLinkInfos(post.Text, post.Facets)
-	if len(filterLinks) == 0 {
-		return nil
-	}
-	links := make([]bluesky.LinkInfo, len(filterLinks))
-	for i, l := range filterLinks {
-		links[i] = bluesky.LinkInfo{DisplayText: l.DisplayText, URL: l.URL}
-	}
-	return links
+func extractLinkInfos(post jetstream.Post) []filter.LinkInfo {
+	return filter.ExtractLinkInfos(post.Text, post.Facets)
 }
 
 type recordEmbed struct {

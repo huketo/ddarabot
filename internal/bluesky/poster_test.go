@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+
+	"github.com/huketo/ddarabot/internal/filter"
 )
 
 func TestBuildFacets(t *testing.T) {
@@ -148,7 +150,7 @@ func TestIsExpiredTokenError(t *testing.T) {
 
 func TestBuildLinkFacets(t *testing.T) {
 	text := "Check out example.com for more info\n\n🌐 Translated by #DDaraBot"
-	links := []LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
+	links := []filter.LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
 
 	facets := BuildLinkFacets(text, links)
 	if len(facets) != 1 {
@@ -171,7 +173,7 @@ func TestBuildLinkFacets(t *testing.T) {
 
 func TestBuildLinkFacets_NotFound(t *testing.T) {
 	text := "This text has no matching display text"
-	links := []LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
+	links := []filter.LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
 
 	facets := BuildLinkFacets(text, links)
 	if len(facets) != 0 {
@@ -205,7 +207,7 @@ func TestPoster_PostReply_WithEmbed(t *testing.T) {
 		URI:   "at://did:plc:author/app.bsky.feed.post/orig456",
 		CID:   "bafyorig",
 		Embed: embedJSON,
-		LinkInfos: []LinkInfo{
+		LinkInfos: []filter.LinkInfo{
 			{DisplayText: "example.com", URL: "https://example.com"},
 		},
 	}

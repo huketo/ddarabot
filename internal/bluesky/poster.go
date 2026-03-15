@@ -10,18 +10,15 @@ import (
 	"regexp"
 	"strings"
 	"time"
-)
 
-type LinkInfo struct {
-	DisplayText string
-	URL         string
-}
+	"github.com/huketo/ddarabot/internal/filter"
+)
 
 type OriginalPost struct {
 	URI       string
 	CID       string
 	Embed     json.RawMessage
-	LinkInfos []LinkInfo
+	LinkInfos []filter.LinkInfo
 }
 
 type Poster struct {
@@ -160,7 +157,7 @@ func isExpiredTokenError(statusCode int, errorCode string) bool {
 }
 
 // BuildLinkFacets finds link display texts in the translated text and creates link facets.
-func BuildLinkFacets(text string, links []LinkInfo) []PostFacet {
+func BuildLinkFacets(text string, links []filter.LinkInfo) []PostFacet {
 	var facets []PostFacet
 	for _, link := range links {
 		idx := strings.Index(text, link.DisplayText)
