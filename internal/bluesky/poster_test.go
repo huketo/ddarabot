@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 )
 
@@ -71,7 +72,7 @@ func TestPoster_PostReply(t *testing.T) {
 }
 
 func TestPoster_ExpiredToken_Retry(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/xrpc/com.atproto.server.createSession":
@@ -82,8 +83,8 @@ func TestPoster_ExpiredToken_Retry(t *testing.T) {
 			// Return error so it falls through to createSession
 			w.WriteHeader(http.StatusUnauthorized)
 		case "/xrpc/com.atproto.repo.createRecord":
-			callCount++
-			if callCount == 1 {
+			callCount.Add(1)
+			if callCount.Load() == 1 {
 				// First call: return expired token error
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode(XRPCError{
@@ -115,8 +116,8 @@ func TestPoster_ExpiredToken_Retry(t *testing.T) {
 		t.Fatalf("PostReply() error = %v, want nil after retry", err)
 	}
 
-	if callCount != 2 {
-		t.Errorf("createRecord called %d times, want 2", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("createRecord called %d times, want 2", callCount.Load())
 	}
 }
 

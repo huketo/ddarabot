@@ -56,7 +56,7 @@ func TestAuth_RefreshSession(t *testing.T) {
 	defer server.Close()
 
 	auth := NewAuth(server.URL, "test.bsky.social", "test-password")
-	auth.session = &Session{RefreshJwt: "old-refresh-token"}
+	auth.lastRefreshJwt = "old-refresh-token"
 
 	session, err := auth.RefreshSession(context.Background())
 	if err != nil {

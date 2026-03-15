@@ -52,6 +52,11 @@ func (a *Auth) CreateSession(ctx context.Context) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Double-check: another goroutine may have restored the session
+	if a.session != nil {
+		return a.session, nil
+	}
+
 	body, err := json.Marshal(CreateSessionRequest{
 		Identifier: a.handle,
 		Password:   a.password,
@@ -94,10 +99,12 @@ func (a *Auth) RefreshSession(ctx context.Context) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	refreshJwt := a.lastRefreshJwt
+	// Double-check: another goroutine may have restored the session
 	if a.session != nil {
-		refreshJwt = a.session.RefreshJwt
+		return a.session, nil
 	}
+
+	refreshJwt := a.lastRefreshJwt
 	if refreshJwt == "" {
 		return nil, fmt.Errorf("no refresh token available")
 	}
