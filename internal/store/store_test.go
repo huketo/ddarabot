@@ -62,6 +62,53 @@ func TestStore_Cursor(t *testing.T) {
 	}
 }
 
+func TestStore_ProcessedLanguages(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := New(path)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer s.Close()
+
+	uri := "at://did:plc:test/app.bsky.feed.post/lang123"
+
+	// Unprocessed URI should return an empty map
+	langs := s.ProcessedLanguages(uri)
+	if len(langs) != 0 {
+		t.Errorf("ProcessedLanguages() on unprocessed URI: got %v, want empty map", langs)
+	}
+
+	// Mark with two languages
+	if err := s.MarkProcessed(uri, []string{"en", "ja"}); err != nil {
+		t.Fatalf("MarkProcessed() error = %v", err)
+	}
+
+	langs = s.ProcessedLanguages(uri)
+	if len(langs) != 2 {
+		t.Fatalf("ProcessedLanguages() got %d entries, want 2", len(langs))
+	}
+	for _, l := range []string{"en", "ja"} {
+		if !langs[l] {
+			t.Errorf("ProcessedLanguages() missing language %q", l)
+		}
+	}
+
+	// Mark again with an additional language
+	if err := s.MarkProcessed(uri, []string{"en", "ja", "zh"}); err != nil {
+		t.Fatalf("MarkProcessed() error = %v", err)
+	}
+
+	langs = s.ProcessedLanguages(uri)
+	if len(langs) != 3 {
+		t.Fatalf("ProcessedLanguages() got %d entries, want 3", len(langs))
+	}
+	for _, l := range []string{"en", "ja", "zh"} {
+		if !langs[l] {
+			t.Errorf("ProcessedLanguages() missing language %q after update", l)
+		}
+	}
+}
+
 func TestStore_CloseAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 
