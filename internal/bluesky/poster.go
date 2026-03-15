@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -55,7 +56,7 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 		return fmt.Errorf("get session: %w", err)
 	}
 
-	facets := BuildHashtagFacets(text, "DDaraBot")
+	facets := BuildAllHashtagFacets(text)
 	facets = append(facets, BuildLinkFacets(text, original.LinkInfos)...)
 
 	var embed *json.RawMessage
@@ -181,6 +182,33 @@ func BuildLinkFacets(text string, links []LinkInfo) []PostFacet {
 	return facets
 }
 
+var hashtagRe = regexp.MustCompile(`#([\p{L}\p{N}_]+)`)
+
+// BuildAllHashtagFacets finds all #hashtag patterns in the text and creates tag facets.
+func BuildAllHashtagFacets(text string) []PostFacet {
+	matches := hashtagRe.FindAllStringIndex(text, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	var facets []PostFacet
+	for _, m := range matches {
+		tag := text[m[0]+1 : m[1]] // skip the '#'
+		facets = append(facets, PostFacet{
+			Index: FacetIndex{ByteStart: m[0], ByteEnd: m[1]},
+			Features: []FacetFeature{
+				{
+					Type: "app.bsky.richtext.facet#tag",
+					Tag:  tag,
+				},
+			},
+		})
+	}
+	return facets
+}
+
+// BuildHashtagFacets creates a tag facet for a single specific hashtag.
+// Deprecated: use BuildAllHashtagFacets instead.
 func BuildHashtagFacets(text string, tag string) []PostFacet {
 	hashTag := "#" + tag
 	idx := strings.Index(text, hashTag)

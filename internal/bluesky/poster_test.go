@@ -244,6 +244,68 @@ func TestPoster_PostReply_WithEmbed(t *testing.T) {
 	}
 }
 
+func TestBuildAllHashtagFacets(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		wantTags []string
+	}{
+		{
+			name:     "single hashtag",
+			text:     "Hello #DDaraBot",
+			wantTags: []string{"DDaraBot"},
+		},
+		{
+			name:     "multiple hashtags",
+			text:     "#atproto #bluesky some text\n\n🌐 Translated by #DDaraBot",
+			wantTags: []string{"atproto", "bluesky", "DDaraBot"},
+		},
+		{
+			name:     "unicode hashtags",
+			text:     "#atproto #블루스카이 test #DDaraBot",
+			wantTags: []string{"atproto", "블루스카이", "DDaraBot"},
+		},
+		{
+			name:     "no hashtags",
+			text:     "plain text without tags",
+			wantTags: nil,
+		},
+		{
+			name:     "hashtag with trailing punctuation",
+			text:     "Check #atproto, it's great",
+			wantTags: []string{"atproto"},
+		},
+		{
+			name:     "lone hash",
+			text:     "# not a tag",
+			wantTags: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			facets := BuildAllHashtagFacets(tt.text)
+			if len(facets) != len(tt.wantTags) {
+				t.Fatalf("BuildAllHashtagFacets() returned %d facets, want %d", len(facets), len(tt.wantTags))
+			}
+			textBytes := []byte(tt.text)
+			for i, f := range facets {
+				got := string(textBytes[f.Index.ByteStart:f.Index.ByteEnd])
+				wantText := "#" + tt.wantTags[i]
+				if got != wantText {
+					t.Errorf("facet[%d] spans %q, want %q", i, got, wantText)
+				}
+				if f.Features[0].Type != "app.bsky.richtext.facet#tag" {
+					t.Errorf("facet[%d] type = %q, want tag", i, f.Features[0].Type)
+				}
+				if f.Features[0].Tag != tt.wantTags[i] {
+					t.Errorf("facet[%d] tag = %q, want %q", i, f.Features[0].Tag, tt.wantTags[i])
+				}
+			}
+		})
+	}
+}
+
 func TestPoster_DryRun(t *testing.T) {
 	poster := NewPoster(nil, "", slog.Default(), true)
 
