@@ -125,7 +125,13 @@ func (l *Listener) Run(ctx context.Context, cursor *int64) error {
 		}
 
 		l.logger.Info("connecting to jetstream", "url", l.config.WebsocketURL)
+		connectedAt := time.Now()
 		err = client.ConnectAndRead(ctx, cursor)
+
+		// Reset backoff if connection was stable (>30s)
+		if time.Since(connectedAt) > 30*time.Second {
+			backoff = 1 * time.Second
+		}
 
 		if ctx.Err() != nil {
 			if cursor != nil {

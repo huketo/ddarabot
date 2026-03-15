@@ -43,17 +43,24 @@ func main() {
 	runBot()
 }
 
+func resolveConfigPath(fs *flag.FlagSet) string {
+	cfgPath := "config.toml"
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "c" || f.Name == "config" {
+			cfgPath = f.Value.String()
+		}
+	})
+	return cfgPath
+}
+
 func runBot() {
 	fs := flag.NewFlagSet("ddarabot", flag.ExitOnError)
-	configPath := fs.String("config", "config.toml", "path to config file")
-	shortConfig := fs.String("c", "config.toml", "path to config file (short)")
+	fs.String("config", "config.toml", "path to config file")
+	fs.String("c", "config.toml", "path to config file (short)")
 	dryRun := fs.Bool("dry-run", false, "translate but do not post replies")
 	fs.Parse(os.Args[1:])
 
-	cfgPath := *configPath
-	if *shortConfig != "config.toml" {
-		cfgPath = *shortConfig
-	}
+	cfgPath := resolveConfigPath(fs)
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
@@ -84,7 +91,7 @@ func runBot() {
 
 	auth := bluesky.NewAuth(cfg.Bluesky.PDSHost, cfg.Bluesky.Handle, cfg.Bluesky.AppPassword)
 	poster := bluesky.NewPoster(auth, cfg.Bluesky.PDSHost, logger, *dryRun)
-	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, logger)
+	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, cfg.Translation.SummarizeOnOverflow, logger)
 
 	b := bot.New(cfg, did, st, tr, poster, logger)
 
@@ -105,14 +112,11 @@ func runBot() {
 
 func runValidate() {
 	fs := flag.NewFlagSet("validate", flag.ExitOnError)
-	configPath := fs.String("config", "config.toml", "path to config file")
-	shortConfig := fs.String("c", "config.toml", "path to config file (short)")
+	fs.String("config", "config.toml", "path to config file")
+	fs.String("c", "config.toml", "path to config file (short)")
 	fs.Parse(os.Args[1:])
 
-	cfgPath := *configPath
-	if *shortConfig != "config.toml" {
-		cfgPath = *shortConfig
-	}
+	cfgPath := resolveConfigPath(fs)
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
@@ -125,7 +129,7 @@ func runValidate() {
 	logger := slog.Default()
 	g := initGenkit(ctx, &cfg.LLM, logger)
 
-	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, logger)
+	tr := translator.New(g, cfg.LLM.Model, cfg.Translation.Footer, cfg.Translation.SummarizeOnOverflow, logger)
 	results, errs := tr.TranslateAll(ctx, "Hello", cfg.Translation.SourceLanguage, cfg.Translation.TargetLanguages[:1])
 	if len(errs) > 0 {
 		fmt.Fprintf(os.Stderr, "LLM test error: %v\n", errs[0])

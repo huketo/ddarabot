@@ -51,16 +51,6 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-func (s *Store) IsProcessed(uri string) bool {
-	var found bool
-	s.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucketProcessed)
-		found = b.Get([]byte(uri)) != nil
-		return nil
-	})
-	return found
-}
-
 // ProcessedLanguages returns the set of languages already posted for a URI.
 func (s *Store) ProcessedLanguages(uri string) map[string]bool {
 	langs := make(map[string]bool)

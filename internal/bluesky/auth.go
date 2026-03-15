@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var httpClient = &http.Client{Timeout: 30 * time.Second}
+var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 type Auth struct {
 	pdsHost        string
@@ -51,6 +51,11 @@ func (a *Auth) GetSession(ctx context.Context) (*Session, error) {
 func (a *Auth) CreateSession(ctx context.Context) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	// Double-check: another goroutine may have restored the session
+	if a.session != nil {
+		return a.session, nil
+	}
 
 	body, err := json.Marshal(CreateSessionRequest{
 		Identifier: a.handle,
@@ -94,10 +99,12 @@ func (a *Auth) RefreshSession(ctx context.Context) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	refreshJwt := a.lastRefreshJwt
+	// Double-check: another goroutine may have restored the session
 	if a.session != nil {
-		refreshJwt = a.session.RefreshJwt
+		return a.session, nil
 	}
+
+	refreshJwt := a.lastRefreshJwt
 	if refreshJwt == "" {
 		return nil, fmt.Errorf("no refresh token available")
 	}
@@ -142,7 +149,7 @@ type resolveHandleResponse struct {
 
 // ResolveDID resolves a Bluesky handle to a DID using the public XRPC endpoint.
 // This does not require authentication.
-func ResolveDID(ctx context.Context, pdsHost, handle string) (string, error) {
+func ResolveDID(ctx context.Context, pdsHost, handle string, client ...*http.Client) (string, error) {
 	u, err := url.Parse(pdsHost + "/xrpc/com.atproto.identity.resolveHandle")
 	if err != nil {
 		return "", fmt.Errorf("parse URL: %w", err)
@@ -156,6 +163,10 @@ func ResolveDID(ctx context.Context, pdsHost, handle string) (string, error) {
 		return "", err
 	}
 
+	httpClient := defaultHTTPClient
+	if len(client) > 0 && client[0] != nil {
+		httpClient = client[0]
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("resolve handle: %w", err)

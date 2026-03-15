@@ -3,9 +3,9 @@ package bot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/huketo/ddarabot/internal/bluesky"
 	"github.com/huketo/ddarabot/internal/config"
@@ -139,10 +139,9 @@ func (b *Bot) processPost(ctx context.Context, post jetstream.Post) {
 	failed := make(map[string]bool)
 	for _, err := range postErrs {
 		b.logger.Error("posting error", "error", err)
-		for lang := range translations {
-			if contains(err.Error(), lang) {
-				failed[lang] = true
-			}
+		var postErr *bluesky.PostError
+		if errors.As(err, &postErr) {
+			failed[postErr.Lang] = true
 		}
 	}
 
@@ -170,20 +169,8 @@ func buildPostURI(did, rkey string) string {
 	return "at://" + did + "/app.bsky.feed.post/" + rkey
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && strings.Contains(s, substr)
-}
-
-func extractLinkInfos(post jetstream.Post) []bluesky.LinkInfo {
-	filterLinks := filter.ExtractLinkInfos(post.Text, post.Facets)
-	if len(filterLinks) == 0 {
-		return nil
-	}
-	links := make([]bluesky.LinkInfo, len(filterLinks))
-	for i, l := range filterLinks {
-		links[i] = bluesky.LinkInfo{DisplayText: l.DisplayText, URL: l.URL}
-	}
-	return links
+func extractLinkInfos(post jetstream.Post) []filter.LinkInfo {
+	return filter.ExtractLinkInfos(post.Text, post.Facets)
 }
 
 type recordEmbed struct {

@@ -14,18 +14,20 @@ import (
 const maxGraphemes = 300
 
 type Translator struct {
-	g      *genkit.Genkit
-	model  string
-	footer string
-	logger *slog.Logger
+	g                   *genkit.Genkit
+	model               string
+	footer              string
+	summarizeOnOverflow bool
+	logger              *slog.Logger
 }
 
-func New(g *genkit.Genkit, model, footer string, logger *slog.Logger) *Translator {
+func New(g *genkit.Genkit, model, footer string, summarizeOnOverflow bool, logger *slog.Logger) *Translator {
 	return &Translator{
-		g:      g,
-		model:  model,
-		footer: footer,
-		logger: logger,
+		g:                   g,
+		model:               model,
+		footer:              footer,
+		summarizeOnOverflow: summarizeOnOverflow,
+		logger:              logger,
 	}
 }
 
@@ -92,7 +94,7 @@ func (t *Translator) translate(ctx context.Context, text, sourceLang, targetLang
 	translated := resp.Text()
 	footerLen := uniseg.GraphemeClusterCount(t.footer)
 
-	if needsSummary(translated, t.footer, footerLen) {
+	if t.summarizeOnOverflow && needsSummary(translated, t.footer, footerLen) {
 		maxChars := maxGraphemes - footerLen
 		resp, err = genkit.Generate(ctx, t.g,
 			ai.WithModelName(t.model),

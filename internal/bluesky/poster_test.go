@@ -6,30 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+
+	"github.com/huketo/ddarabot/internal/filter"
 )
-
-func TestBuildFacets(t *testing.T) {
-	text := "Hello world\n\n🌐 Translated by #DDaraBot"
-	facets := BuildHashtagFacets(text, "DDaraBot")
-
-	if len(facets) != 1 {
-		t.Fatalf("len(facets) = %d, want 1", len(facets))
-	}
-
-	f := facets[0]
-	textBytes := []byte(text)
-	tag := string(textBytes[f.Index.ByteStart:f.Index.ByteEnd])
-	if tag != "#DDaraBot" {
-		t.Errorf("facet tag text = %q, want %q", tag, "#DDaraBot")
-	}
-	if f.Features[0].Type != "app.bsky.richtext.facet#tag" {
-		t.Errorf("feature type = %q", f.Features[0].Type)
-	}
-	if f.Features[0].Tag != "DDaraBot" {
-		t.Errorf("feature tag = %q", f.Features[0].Tag)
-	}
-}
 
 func TestPoster_PostReply(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +52,7 @@ func TestPoster_PostReply(t *testing.T) {
 }
 
 func TestPoster_ExpiredToken_Retry(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/xrpc/com.atproto.server.createSession":
@@ -82,8 +63,8 @@ func TestPoster_ExpiredToken_Retry(t *testing.T) {
 			// Return error so it falls through to createSession
 			w.WriteHeader(http.StatusUnauthorized)
 		case "/xrpc/com.atproto.repo.createRecord":
-			callCount++
-			if callCount == 1 {
+			callCount.Add(1)
+			if callCount.Load() == 1 {
 				// First call: return expired token error
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode(XRPCError{
@@ -115,8 +96,8 @@ func TestPoster_ExpiredToken_Retry(t *testing.T) {
 		t.Fatalf("PostReply() error = %v, want nil after retry", err)
 	}
 
-	if callCount != 2 {
-		t.Errorf("createRecord called %d times, want 2", callCount)
+	if callCount.Load() != 2 {
+		t.Errorf("createRecord called %d times, want 2", callCount.Load())
 	}
 }
 
@@ -147,7 +128,7 @@ func TestIsExpiredTokenError(t *testing.T) {
 
 func TestBuildLinkFacets(t *testing.T) {
 	text := "Check out example.com for more info\n\n🌐 Translated by #DDaraBot"
-	links := []LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
+	links := []filter.LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
 
 	facets := BuildLinkFacets(text, links)
 	if len(facets) != 1 {
@@ -170,7 +151,7 @@ func TestBuildLinkFacets(t *testing.T) {
 
 func TestBuildLinkFacets_NotFound(t *testing.T) {
 	text := "This text has no matching display text"
-	links := []LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
+	links := []filter.LinkInfo{{DisplayText: "example.com", URL: "https://example.com"}}
 
 	facets := BuildLinkFacets(text, links)
 	if len(facets) != 0 {
@@ -204,7 +185,7 @@ func TestPoster_PostReply_WithEmbed(t *testing.T) {
 		URI:   "at://did:plc:author/app.bsky.feed.post/orig456",
 		CID:   "bafyorig",
 		Embed: embedJSON,
-		LinkInfos: []LinkInfo{
+		LinkInfos: []filter.LinkInfo{
 			{DisplayText: "example.com", URL: "https://example.com"},
 		},
 	}
@@ -241,6 +222,68 @@ func TestPoster_PostReply_WithEmbed(t *testing.T) {
 	}
 	if !foundLink {
 		t.Error("expected a link facet with URI https://example.com in the record")
+	}
+}
+
+func TestBuildAllHashtagFacets(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		wantTags []string
+	}{
+		{
+			name:     "single hashtag",
+			text:     "Hello #DDaraBot",
+			wantTags: []string{"DDaraBot"},
+		},
+		{
+			name:     "multiple hashtags",
+			text:     "#atproto #bluesky some text\n\n🌐 Translated by #DDaraBot",
+			wantTags: []string{"atproto", "bluesky", "DDaraBot"},
+		},
+		{
+			name:     "unicode hashtags",
+			text:     "#atproto #블루스카이 test #DDaraBot",
+			wantTags: []string{"atproto", "블루스카이", "DDaraBot"},
+		},
+		{
+			name:     "no hashtags",
+			text:     "plain text without tags",
+			wantTags: nil,
+		},
+		{
+			name:     "hashtag with trailing punctuation",
+			text:     "Check #atproto, it's great",
+			wantTags: []string{"atproto"},
+		},
+		{
+			name:     "lone hash",
+			text:     "# not a tag",
+			wantTags: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			facets := BuildAllHashtagFacets(tt.text)
+			if len(facets) != len(tt.wantTags) {
+				t.Fatalf("BuildAllHashtagFacets() returned %d facets, want %d", len(facets), len(tt.wantTags))
+			}
+			textBytes := []byte(tt.text)
+			for i, f := range facets {
+				got := string(textBytes[f.Index.ByteStart:f.Index.ByteEnd])
+				wantText := "#" + tt.wantTags[i]
+				if got != wantText {
+					t.Errorf("facet[%d] spans %q, want %q", i, got, wantText)
+				}
+				if f.Features[0].Type != "app.bsky.richtext.facet#tag" {
+					t.Errorf("facet[%d] type = %q, want tag", i, f.Features[0].Type)
+				}
+				if f.Features[0].Tag != tt.wantTags[i] {
+					t.Errorf("facet[%d] tag = %q, want %q", i, f.Features[0].Tag, tt.wantTags[i])
+				}
+			}
+		})
 	}
 }
 

@@ -7,20 +7,18 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
-)
 
-type LinkInfo struct {
-	DisplayText string
-	URL         string
-}
+	"github.com/huketo/ddarabot/internal/filter"
+)
 
 type OriginalPost struct {
 	URI       string
 	CID       string
 	Embed     json.RawMessage
-	LinkInfos []LinkInfo
+	LinkInfos []filter.LinkInfo
 }
 
 type Poster struct {
@@ -55,7 +53,7 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 		return fmt.Errorf("get session: %w", err)
 	}
 
-	facets := BuildHashtagFacets(text, "DDaraBot")
+	facets := BuildAllHashtagFacets(text)
 	facets = append(facets, BuildLinkFacets(text, original.LinkInfos)...)
 
 	var embed *json.RawMessage
@@ -121,6 +119,20 @@ func (p *Poster) postReplyWithRetry(ctx context.Context, original OriginalPost, 
 	return nil
 }
 
+// PostError wraps a posting error with the language that failed.
+type PostError struct {
+	Lang string
+	Err  error
+}
+
+func (e *PostError) Error() string {
+	return fmt.Sprintf("post %s: %s", e.Lang, e.Err)
+}
+
+func (e *PostError) Unwrap() error {
+	return e.Err
+}
+
 func (p *Poster) PostAll(ctx context.Context, original OriginalPost, translations map[string]string, maxConcurrent int) []error {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 3
@@ -146,7 +158,7 @@ func (p *Poster) PostAll(ctx context.Context, original OriginalPost, translation
 	for range translations {
 		r := <-ch
 		if r.err != nil {
-			errs = append(errs, fmt.Errorf("post %s: %w", r.lang, r.err))
+			errs = append(errs, &PostError{Lang: r.lang, Err: r.err})
 		}
 	}
 	return errs
@@ -159,7 +171,7 @@ func isExpiredTokenError(statusCode int, errorCode string) bool {
 }
 
 // BuildLinkFacets finds link display texts in the translated text and creates link facets.
-func BuildLinkFacets(text string, links []LinkInfo) []PostFacet {
+func BuildLinkFacets(text string, links []filter.LinkInfo) []PostFacet {
 	var facets []PostFacet
 	for _, link := range links {
 		idx := strings.Index(text, link.DisplayText)
@@ -181,28 +193,27 @@ func BuildLinkFacets(text string, links []LinkInfo) []PostFacet {
 	return facets
 }
 
-func BuildHashtagFacets(text string, tag string) []PostFacet {
-	hashTag := "#" + tag
-	idx := strings.Index(text, hashTag)
-	if idx == -1 {
+var hashtagRe = regexp.MustCompile(`#([\p{L}\p{N}_]+)`)
+
+// BuildAllHashtagFacets finds all #hashtag patterns in the text and creates tag facets.
+func BuildAllHashtagFacets(text string) []PostFacet {
+	matches := hashtagRe.FindAllStringIndex(text, -1)
+	if len(matches) == 0 {
 		return nil
 	}
 
-	byteStart := idx
-	byteEnd := byteStart + len(hashTag)
-	if byteEnd > len(text) {
-		return nil
-	}
-
-	return []PostFacet{
-		{
-			Index: FacetIndex{ByteStart: byteStart, ByteEnd: byteEnd},
+	var facets []PostFacet
+	for _, m := range matches {
+		tag := text[m[0]+1 : m[1]] // skip the '#'
+		facets = append(facets, PostFacet{
+			Index: FacetIndex{ByteStart: m[0], ByteEnd: m[1]},
 			Features: []FacetFeature{
 				{
 					Type: "app.bsky.richtext.facet#tag",
 					Tag:  tag,
 				},
 			},
-		},
+		})
 	}
+	return facets
 }
